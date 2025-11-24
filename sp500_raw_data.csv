@@ -1,0 +1,65 @@
+# generate_data.py
+"""
+Generate raw and processed historical S&P 500 data CSV files.
+Includes rolling average features and target variable for ML.
+"""
+
+import yfinance as yf
+import pandas as pd
+import os
+
+# -----------------------------
+# Step 1: Create data folder
+# -----------------------------
+if not os.path.exists("data"):
+    os.makedirs("data")
+
+# -----------------------------
+# Step 2: Download historical S&P 500 data
+# -----------------------------
+def download_sp500(ticker="^GSPC", start="2023-01-01", end="2025-11-01"):
+    """
+    Downloads historical S&P 500 data from Yahoo Finance
+    for the last ~2 years and saves it as CSV.
+    """
+    print(f"Downloading {ticker} data from {start} to {end}...")
+    data = yf.download(ticker, start=start, end=end)
+    
+    raw_csv_path = "data/sp500_raw.csv"
+    data.to_csv(raw_csv_path)
+    print(f"Raw data saved to {raw_csv_path}")
+    return data
+
+# -----------------------------
+# Step 3: Generate features and target variable
+# -----------------------------
+def create_features(data):
+    """
+    Adds rolling average features and a target variable.
+    Target = 1 if next day's Close > today's Close, else 0
+    """
+    # Target variable
+    data['Target'] = (data['Close'].shift(-1) > data['Close']).astype(int)
+    
+    # Rolling averages
+    windows = [5, 10, 20]
+    for w in windows:
+        data[f'Close_{w}'] = data['Close'].rolling(window=w).mean()
+    
+    # Drop rows with NaN (due to rolling averages)
+    data.dropna(inplace=True)
+    
+    processed_csv_path = "data/sp500_features.csv"
+    data.to_csv(processed_csv_path)
+    print(f"Processed features saved to {processed_csv_path}")
+    return data
+
+# -----------------------------
+# Step 4: Main execution
+# -----------------------------
+if __name__ == "__main__":
+    raw_data = download_sp500()
+    processed_data = create_features(raw_data)
+    
+    print("Data generation complete!")
+    print("Columns in processed data:", processed_data.columns.tolist())
